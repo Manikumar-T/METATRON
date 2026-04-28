@@ -1,0 +1,71 @@
+services:
+
+  mariadb:
+    image: mariadb:lts
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-metatron}
+      MYSQL_USER: ${DB_USER:-metatron}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-metatron_secure_password}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  ollama-init:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - ollama_data:/root/.ollama
+      - .:/app:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "ollama pull huihui_ai/qwen3.5-abliterated:9b &&
+       ollama create metatron-qwen -f /app/Modelfile &&
+       echo '[+] metatron-qwen model ready.'"
+    restart: "no"
+
+  metatron:
+    build: .
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    environment:
+      - DB_HOST=mariadb
+      - DB_USER=${DB_USER:-metatron}
+      - DB_PASSWORD=${DB_PASSWORD:-metatron_secure_password}
+      - DB_NAME=${DB_NAME:-metatron}
+      - OLLAMA_URL=http://ollama:11434/api/chat
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-metatron-qwen}
+    volumes:
+      - ./reports:/app/reports
+    stdin_open: true
+    tty: true
+
+volumes:
+  mariadb_data:
+  ollama_data:
