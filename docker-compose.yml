@@ -30,8 +30,15 @@ services:
       - DB_USER=${DB_USER:-metatron}
       - DB_PASSWORD=${DB_PASSWORD:-metatron_secure_password}
       - DB_NAME=${DB_NAME:-metatron}
-      - OLLAMA_URL=http://tinkerer-rog:11434/api/chat
+      # LLM Provider Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      # Ollama configuration
+      - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434/api/chat}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-metatron-qwen}
+      # OpenAI-compatible configuration
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       - ./reports:/app/reports
     stdin_open: true
